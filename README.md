@@ -1,8 +1,4 @@
 # 📰 TruthLens — Fake News Detector
-### Multi-Category AI-Powered Fake News Detection System
-
----
-
 ## 📁 Project Structure
 
 ```
@@ -19,15 +15,5 @@ fake_news_detector/
 └── frontend/
     └── index.html                  ← Web UI 
 
-
----
-
-## 🗂️ DATASETS
-
-| Dataset | Categories | Size | Kaggle Link |
-|---------|-----------|------|-------------|
-| **WELFake** | Sports, Entertainment, Tech, Health, General | ~72,000 | `saurabhshahane/fake-news-classification` |
-| **LIAR** | Politics, Health, History, Finance | ~12,800 | `mrisdal/fake-news` |
-| **FakeNewsNet** | Health, Entertainment | ~20,000 | Search on Kaggle |
 
 
