@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TruthLens — Fake News Detector</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,700;1,400&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Reset & Base ───────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0a0c10;
+      --surface:  #111520;
+      --card:     #161b2a;
+      --border:   #1e2740;
+      --accent:   #4af0b0;
+      --red:      #ff4d6d;
+      --yellow:   #ffd166;
+      --blue:     #4a9eff;
+      --text:     #e2e8f0;
+      --muted:    #8892a4;
+      --font-head: 'Bebas Neue', sans-serif;
+      --font-body: 'DM Sans', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-body);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Animated background grid ──────────────────────────── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(rgba(74,240,176,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(74,240,176,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Header ─────────────────────────────────────────────── */
+    header {
+      position: relative; z-index: 10;
+      padding: 28px 48px 20px;
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(10px);
+    }
+
+    .logo {
+      display: flex; align-items: center; gap: 12px;
+    }
+    .logo-icon {
+      width: 40px; height: 40px;
+      background: linear-gradient(135deg, var(--accent), #0ff7a0);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+    }
+    .logo-text {
+      font-family: var(--font-head);
+      font-size: 28px;
+      letter-spacing: 2px;
+      color: #fff;
+    }
+    .logo-text span { color: var(--accent); }
+
+    .api-status {
+      display: flex; align-items: center; gap: 8px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--muted);
+      background: var(--surface);
+      padding: 8px 16px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+    }
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--muted);
+      transition: background 0.3s;
+    }
+    .status-dot.online { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+    .status-dot.offline { background: var(--red); box-shadow: 0 0 8px var(--red); }
+
+    /* ── Main Layout ────────────────────────────────────────── */
+    main {
+      position: relative; z-index: 1;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 60px 24px 80px;
+    }
+
+    /* ── Hero ───────────────────────────────────────────────── */
+    .hero {
+      text-align: center;
+      margin-bottom: 56px;
+    }
+    .hero-tag {
+      display: inline-block;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--accent);
+      background: rgba(74,240,176,0.08);
+      border: 1px solid rgba(74,240,176,0.25);
+      padding: 6px 16px;
+      border-radius: 20px;
+      margin-bottom: 20px;
+    }
+    .hero h1 {
+      font-family: var(--font-head);
+      font-size: clamp(48px, 8vw, 88px);
+      letter-spacing: 4px;
+      line-height: 0.95;
+      color: #fff;
+      margin-bottom: 20px;
+    }
+    .hero h1 span {
+      background: linear-gradient(135deg, var(--accent) 0%, #0ff7a0 60%, var(--blue) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero p {
+      color: var(--muted);
+      font-size: 17px;
+      max-width: 500px;
+      margin: 0 auto;
+      line-height: 1.6;
+      font-weight: 300;
+    }
+
+    /* ── Stats Row ─────────────────────────────────────────── */
+    .stats-row {
+      display: flex; justify-content: center; gap: 24px;
+      flex-wrap: wrap;
+      margin-bottom: 48px;
+    }
+    .stat-chip {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 24px;
+      text-align: center;
+      transition: border-color 0.2s;
+    }
+    .stat-chip:hover { border-color: var(--accent); }
+    .stat-chip .val {
+      font-family: var(--font-head);
+      font-size: 26px;
+      color: var(--accent);
+      letter-spacing: 1px;
+    }
+    .stat-chip .lbl {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-top: 2px;
+    }
+
+    /* ── Card ───────────────────────────────────────────────── */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 36px 40px;
+      margin-bottom: 28px;
+      transition: border-color 0.3s;
+    }
+    .card:hover { border-color: #2a3555; }
+    .card-title {
+      font-family: var(--font-head);
+      font-size: 20px;
+      letter-spacing: 2px;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 24px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .card-title::after {
+      content: ''; flex: 1;
+      height: 1px; background: var(--border);
+    }
+
+    /* ── Category Pills ─────────────────────────────────────── */
+    .category-grid {
+      display: flex; flex-wrap: wrap; gap: 10px;
+      margin-bottom: 28px;
+    }
+    .cat-pill {
+      cursor: pointer;
+      padding: 9px 18px;
+      border-radius: 30px;
+      font-size: 13px;
+      font-weight: 500;
+      border: 1.5px solid var(--border);
+      color: var(--muted);
+      background: transparent;
+      transition: all 0.2s;
+      user-select: none;
+    }
+    .cat-pill:hover { border-color: var(--accent); color: var(--accent); }
+    .cat-pill.active {
+      background: rgba(74,240,176,0.12);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* ── Textarea ───────────────────────────────────────────── */
+    .input-wrap { position: relative; margin-bottom: 20px; }
+    textarea {
+      width: 100%;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 14px;
+      padding: 20px 24px;
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: 15px;
+      line-height: 1.65;
+      resize: vertical;
+      min-height: 160px;
+      max-height: 400px;
+      transition: border-color 0.2s;
+      outline: none;
+    }
+    textarea::placeholder { color: var(--muted); }
+    textarea:focus { border-color: var(--accent); }
+
+    .char-count {
+      position: absolute; bottom: 14px; right: 16px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    /* ── Action Row ─────────────────────────────────────────── */
+    .action-row {
+      display: flex; gap: 12px; align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .btn-analyze {
+      flex: 1;
+      min-width: 200px;
+      padding: 16px 32px;
+      border: none;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--accent), #0ff7a0);
+      color: #0a0c10;
+      font-family: var(--font-head);
+      font-size: 18px;
+      letter-spacing: 2px;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+    .btn-analyze:hover { transform: translateY(-1px); box-shadow: 0 8px 30px rgba(74,240,176,0.3); }
+    .btn-analyze:active { transform: translateY(0); }
+    .btn-analyze:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    .btn-clear {
+      padding: 16px 24px;
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      background: transparent;
+      color: var(--muted);
+      font-family: var(--font-body);
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-clear:hover { border-color: var(--red); color: var(--red); }
+
+    /* ── Loading ────────────────────────────────────────────── */
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 48px;
+    }
+    .loading.active { display: block; }
+    .spinner {
+      width: 48px; height: 48px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--muted);
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:0.4} 50%{opacity:1} }
+
+    /* ── Result Card ────────────────────────────────────────── */
+    .result-card {
+      display: none;
+      animation: slideUp 0.4s ease;
+    }
+    .result-card.active { display: block; }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .verdict-banner {
+      border-radius: 14px;
+      padding: 28px 32px;
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 24px;
+      position: relative;
+      overflow: hidden;
+    }
+    .verdict-banner.fake {
+      background: rgba(255,77,109,0.08);
+      border: 1.5px solid rgba(255,77,109,0.4);
+    }
+    .verdict-banner.real {
+      background: rgba(74,240,176,0.08);
+      border: 1.5px solid rgba(74,240,176,0.4);
+    }
+    .verdict-left { display: flex; align-items: center; gap: 20px; }
+    .verdict-emoji { font-size: 48px; }
+    .verdict-label {
+      font-family: var(--font-head);
+      font-size: 52px;
+      letter-spacing: 4px;
+      line-height: 1;
+    }
+    .verdict-label.fake { color: var(--red); }
+    .verdict-label.real { color: var(--accent); }
+    .verdict-sub {
+      font-size: 14px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+    .confidence-badge {
+      font-family: var(--font-head);
+      font-size: 36px;
+      letter-spacing: 2px;
+      padding: 12px 24px;
+      border-radius: 12px;
+      letter-spacing: 1px;
+    }
+    .fake .confidence-badge { background: rgba(255,77,109,0.15); color: var(--red); }
+    .real .confidence-badge { background: rgba(74,240,176,0.15); color: var(--accent); }
+
+    /* ── Metrics Grid ───────────────────────────────────────── */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .metric-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px;
+    }
+    .metric-box .m-val {
+      font-family: var(--font-head);
+      font-size: 28px;
+      color: var(--text);
+      letter-spacing: 1px;
+    }
+    .metric-box .m-lbl {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 4px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    /* ── Probability Bar ────────────────────────────────────── */
+    .prob-section { margin-bottom: 24px; }
+    .prob-label {
+      display: flex; justify-content: space-between;
+      font-size: 13px; color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .prob-bar-bg {
+      height: 10px;
+      background: var(--surface);
+      border-radius: 10px;
+      overflow: hidden;
+      margin-bottom: 10px;
+      border: 1px solid var(--border);
+    }
+    .prob-bar-fill {
+      height: 100%;
+      border-radius: 10px;
+      transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .prob-bar-fill.real { background: linear-gradient(90deg, var(--accent), #0ff7a0); }
+    .prob-bar-fill.fake { background: linear-gradient(90deg, var(--red), #ff8096); }
+
+    /* ── Signal Badges ──────────────────────────────────────── */
+    .signals-row { display: flex; gap: 16px; flex-wrap: wrap; }
+    .signal-group { flex: 1; min-width: 200px; }
+    .signal-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .signal-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .signal-chip {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 6px;
+    }
+    .signal-chip.fake-sig { background: rgba(255,77,109,0.1); color: var(--red); border: 1px solid rgba(255,77,109,0.3); }
+    .signal-chip.real-sig { background: rgba(74,240,176,0.1); color: var(--accent); border: 1px solid rgba(74,240,176,0.3); }
+    .signal-chip.none { color: var(--muted); border: 1px solid var(--border); }
+
+    /* ── Error ──────────────────────────────────────────────── */
+    .error-box {
+      display: none;
+      background: rgba(255,77,109,0.06);
+      border: 1.5px solid rgba(255,77,109,0.3);
+      border-radius: 14px;
+      padding: 20px 24px;
+      color: var(--red);
+      font-size: 14px;
+      margin-top: 16px;
+    }
+    .error-box.active { display: block; }
+
+    /* ── History ────────────────────────────────────────────── */
+    .history-list { display: flex; flex-direction: column; gap: 10px; }
+    .history-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 18px;
+      display: flex; align-items: center; gap: 14px;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .history-item:hover { border-color: var(--accent); }
+    .history-verdict {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 6px;
+      white-space: nowrap;
+    }
+    .history-verdict.fake { background: rgba(255,77,109,0.15); color: var(--red); }
+    .history-verdict.real { background: rgba(74,240,176,0.15); color: var(--accent); }
+    .history-text {
+      flex: 1; font-size: 13px; color: var(--muted);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .history-conf {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .no-history { color: var(--muted); font-size: 14px; text-align: center; padding: 24px 0; }
+
+    /* ── Responsive ─────────────────────────────────────────── */
+    @media (max-width: 640px) {
+      header { padding: 20px 20px 16px; }
+      main { padding: 36px 16px 60px; }
+      .card { padding: 24px 20px; }
+      .verdict-banner { flex-direction: column; gap: 16px; text-align: center; }
+      .verdict-left { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Header ──────────────────────────────────────────────── -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">🔍</div>
+    <span class="logo-text">TRUTH<span>LENS</span></span>
+  </div>
+  <div class="api-status">
+    <div class="status-dot" id="statusDot"></div>
+    <span id="statusText">Checking API…</span>
+  </div>
+</header>
+
+<!-- ── Main ────────────────────────────────────────────────── -->
+<main>
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-tag">AI-POWERED ANALYSIS</div>
+    <h1>DETECT<br><span>FAKE NEWS</span></h1>
+    <p>Multi-category machine learning model trained on 70,000+ articles across Politics, Health, Tech, Entertainment, Sports, and more.</p>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-row">
+    <div class="stat-chip"><div class="val">80%+</div><div class="lbl">Accuracy</div></div>
+    <div class="stat-chip"><div class="val">7</div><div class="lbl">Categories</div></div>
+    <div class="stat-chip"><div class="val">70K+</div><div class="lbl">Training Samples</div></div>
+    <div class="stat-chip"><div class="val">TF-IDF</div><div class="lbl">Algorithm</div></div>
+  </div>
+
+  <!-- Input Card -->
+  <div class="card">
+    <div class="card-title">Analyze Article</div>
+
+    <!-- Categories -->
+    <div class="category-grid" id="categoryGrid">
+      <div class="cat-pill active" data-cat="General">🌐 General</div>
+      <div class="cat-pill" data-cat="Politics">🏛️ Politics</div>
+      <div class="cat-pill" data-cat="Health">💊 Health</div>
+      <div class="cat-pill" data-cat="Tech">💻 Tech</div>
+      <div class="cat-pill" data-cat="Entertainment">🎬 Entertainment</div>
+      <div class="cat-pill" data-cat="Sports">⚽ Sports</div>
+      <div class="cat-pill" data-cat="History">📜 History</div>
+    </div>
+
+    <!-- Textarea -->
+    <div class="input-wrap">
+      <textarea id="newsInput" placeholder="Paste a news headline or article here…&#10;&#10;Example: 'Scientists confirm that drinking coffee daily reduces Alzheimer's risk by 40%, according to a 10-year Harvard study published this week.'" maxlength="5000"></textarea>
+      <div class="char-count" id="charCount">0 / 5000</div>
+    </div>
+
+    <!-- Buttons -->
+    <div class="action-row">
+      <button class="btn-analyze" id="analyzeBtn" onclick="analyze()">ANALYZE NEWS</button>
+      <button class="btn-clear" onclick="clearAll()">Clear</button>
+    </div>
+
+    <!-- Error -->
+    <div class="error-box" id="errorBox"></div>
+  </div>
+
+  <!-- Loading -->
+  <div class="loading" id="loadingSection">
+    <div class="spinner"></div>
+    <div class="loading-text" id="loadingText">Analyzing with AI model…</div>
+  </div>
+
+  <!-- Result Card -->
+  <div class="result-card card" id="resultCard">
+    <div class="card-title">Analysis Result</div>
+
+    <!-- Verdict Banner -->
+    <div class="verdict-banner" id="verdictBanner">
+      <div class="verdict-left">
+        <div class="verdict-emoji" id="verdictEmoji"></div>
+        <div>
+          <div class="verdict-label" id="verdictLabel"></div>
+          <div class="verdict-sub" id="verdictSub"></div>
+        </div>
+      </div>
+      <div class="confidence-badge" id="confidenceBadge"></div>
+    </div>
+
+    <!-- Metrics -->
+    <div class="metrics-grid">
+      <div class="metric-box">
+        <div class="m-val" id="mProb">—</div>
+        <div class="m-lbl">Real Probability</div>
+      </div>
+      <div class="metric-box">
+        <div class="m-val" id="mFakeProb">—</div>
+        <div class="m-lbl">Fake Probability</div>
+      </div>
+      <div class="metric-box">
+        <div class="m-val" id="mRisk">—</div>
+        <div class="m-lbl">Risk Level</div>
+      </div>
+      <div class="metric-box">
+        <div class="m-val" id="mWords">—</div>
+        <div class="m-lbl">Word Count</div>
+      </div>
+    </div>
+
+    <!-- Probability Bars -->
+    <div class="prob-section">
+      <div class="prob-label"><span>Real</span><span id="realPct">0%</span></div>
+      <div class="prob-bar-bg"><div class="prob-bar-fill real" id="realBar" style="width:0%"></div></div>
+      <div class="prob-label"><span>Fake</span><span id="fakePct">0%</span></div>
+      <div class="prob-bar-bg"><div class="prob-bar-fill fake" id="fakeBar" style="width:0%"></div></div>
+    </div>
+
+    <!-- Signals -->
+    <div class="signals-row">
+      <div class="signal-group">
+        <div class="signal-title">⚠️ Fake Indicators Found</div>
+        <div class="signal-chips" id="fakeSignals"></div>
+      </div>
+      <div class="signal-group">
+        <div class="signal-title">✅ Credibility Signals Found</div>
+        <div class="signal-chips" id="realSignals"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- History Card -->
+  <div class="card">
+    <div class="card-title">Recent Analyses</div>
+    <div class="history-list" id="historyList">
+      <div class="no-history">No analyses yet. Try submitting a news article above.</div>
+    </div>
+  </div>
+
+</main>
+
+<!-- ── Scripts ──────────────────────────────────────────────── -->
+<script>
+  const API_URL = 'http://localhost:5000';
+  let selectedCategory = 'General';
+  let history = [];
+
+  // ── Category Selection ───────────────────────────────────
+  document.querySelectorAll('.cat-pill').forEach(pill => {
+    pill.addEventListener('click', () => {
+      document.querySelectorAll('.cat-pill').forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+      selectedCategory = pill.dataset.cat;
+    });
+  });
+
+  // ── Char Counter ─────────────────────────────────────────
+  document.getElementById('newsInput').addEventListener('input', function () {
+    document.getElementById('charCount').textContent = `${this.value.length} / 5000`;
+  });
+
+  // ── Check API Status ─────────────────────────────────────
+  async function checkApiStatus() {
+    const dot = document.getElementById('statusDot');
+    const txt = document.getElementById('statusText');
+    try {
+      const res = await fetch(`${API_URL}/health`, { signal: AbortSignal.timeout(3000) });
+      if (res.ok) {
+        dot.className = 'status-dot online';
+        txt.textContent = 'API Online';
+        return true;
+      }
+    } catch (e) {}
+    dot.className = 'status-dot offline';
+    txt.textContent = 'API Offline';
+    return false;
+  }
+  checkApiStatus();
+  setInterval(checkApiStatus, 10000);
+
+  // ── Main Analyze Function ─────────────────────────────────
+  async function analyze() {
+    const text = document.getElementById('newsInput').value.trim();
+    const errorBox = document.getElementById('errorBox');
+    errorBox.className = 'error-box';
+
+    if (!text) {
+      showError('Please paste a news article or headline to analyze.');
+      return;
+    }
+    if (text.split(/\s+/).length < 5) {
+      showError('Please enter at least 5 words for accurate analysis.');
+      return;
+    }
+
+    const online = await checkApiStatus();
+    if (!online) {
+      showError('❌ Backend API is offline. Please start the Flask server:\n\ncd backend\npython app.py');
+      return;
+    }
+
+    // Show loading
+    document.getElementById('loadingSection').classList.add('active');
+    document.getElementById('resultCard').classList.remove('active');
+    document.getElementById('analyzeBtn').disabled = true;
+
+    const loadingMessages = [
+      'Preprocessing text…',
+      'Running TF-IDF vectorizer…',
+      'Classifying with model…',
+      'Computing confidence scores…'
+    ];
+    let msgIdx = 0;
+    const msgInterval = setInterval(() => {
+      document.getElementById('loadingText').textContent = loadingMessages[msgIdx++ % loadingMessages.length];
+    }, 600);
+
+    try {
+      const res = await fetch(`${API_URL}/predict`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, category: selectedCategory })
+      });
+
+      clearInterval(msgInterval);
+      document.getElementById('loadingSection').classList.remove('active');
+
+      if (!res.ok) {
+        const err = await res.json();
+        showError(err.error || 'Server error. Please try again.');
+        return;
+      }
+
+      const data = await res.json();
+      renderResult(data, text);
+
+    } catch (e) {
+      clearInterval(msgInterval);
+      document.getElementById('loadingSection').classList.remove('active');
+      showError('Could not connect to backend. Make sure Flask is running on port 5000.');
+    } finally {
+      document.getElementById('analyzeBtn').disabled = false;
+    }
+  }
+
+  // ── Render Result ─────────────────────────────────────────
+  function renderResult(data, text) {
+    const isFake = data.result === 'FAKE';
+    const card = document.getElementById('resultCard');
+    const banner = document.getElementById('verdictBanner');
+
+    banner.className = `verdict-banner ${isFake ? 'fake' : 'real'}`;
+    document.getElementById('verdictEmoji').textContent = isFake ? '🚨' : '✅';
+    document.getElementById('verdictLabel').textContent = data.result;
+    document.getElementById('verdictLabel').className = `verdict-label ${isFake ? 'fake' : 'real'}`;
+    document.getElementById('verdictSub').textContent =
+      `${data.category} • ${data.risk_level}`;
+    document.getElementById('confidenceBadge').textContent = `${data.confidence}%`;
+
+    document.getElementById('mProb').textContent = `${data.probabilities.real}%`;
+    document.getElementById('mFakeProb').textContent = `${data.probabilities.fake}%`;
+    document.getElementById('mRisk').textContent = data.risk_level;
+    document.getElementById('mWords').textContent = data.word_count;
+
+    setTimeout(() => {
+      document.getElementById('realBar').style.width = `${data.probabilities.real}%`;
+      document.getElementById('fakeBar').style.width = `${data.probabilities.fake}%`;
+    }, 100);
+    document.getElementById('realPct').textContent = `${data.probabilities.real}%`;
+    document.getElementById('fakePct').textContent = `${data.probabilities.fake}%`;
+
+    // Signals
+    const fakeChips = document.getElementById('fakeSignals');
+    const realChips = document.getElementById('realSignals');
+    fakeChips.innerHTML = data.fake_signals_found.length
+      ? data.fake_signals_found.map(s => `<span class="signal-chip fake-sig">${s}</span>`).join('')
+      : '<span class="signal-chip none">None detected</span>';
+    realChips.innerHTML = data.real_signals_found.length
+      ? data.real_signals_found.map(s => `<span class="signal-chip real-sig">${s}</span>`).join('')
+      : '<span class="signal-chip none">None detected</span>';
+
+    card.classList.add('active');
+    card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    // Add to history
+    addToHistory(data, text);
+  }
+
+  // ── History ───────────────────────────────────────────────
+  function addToHistory(data, text) {
+    history.unshift({ data, text, time: new Date().toLocaleTimeString() });
+    if (history.length > 8) history.pop();
+    renderHistory();
+  }
+
+  function renderHistory() {
+    const list = document.getElementById('historyList');
+    if (!history.length) {
+      list.innerHTML = '<div class="no-history">No analyses yet.</div>';
+      return;
+    }
+    list.innerHTML = history.map((h, i) => `
+      <div class="history-item" onclick="loadHistory(${i})">
+        <span class="history-verdict ${h.data.result.toLowerCase()}">${h.data.result}</span>
+        <span class="history-text">${h.text.substring(0, 80)}…</span>
+        <span class="history-conf">${h.data.confidence}% • ${h.time}</span>
+      </div>
+    `).join('');
+  }
+
+  function loadHistory(idx) {
+    const h = history[idx];
+    document.getElementById('newsInput').value = h.text;
+    document.getElementById('charCount').textContent = `${h.text.length} / 5000`;
+    renderResult(h.data, h.text);
+  }
+
+  // ── Helpers ───────────────────────────────────────────────
+  function showError(msg) {
+    const box = document.getElementById('errorBox');
+    box.textContent = msg;
+    box.className = 'error-box active';
+  }
+
+  function clearAll() {
+    document.getElementById('newsInput').value = '';
+    document.getElementById('charCount').textContent = '0 / 5000';
+    document.getElementById('resultCard').classList.remove('active');
+    document.getElementById('errorBox').className = 'error-box';
+    document.getElementById('loadingSection').classList.remove('active');
+  }
+</script>
+</body>
+</html>
